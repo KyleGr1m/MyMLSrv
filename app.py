@@ -43,34 +43,32 @@ def parse_file(content):
         line = line.strip()
         if not line or ':' not in line:
             continue
-            
         try:
-            # Split email and password
             email_part, rest = line.split(':', 1)
             email = email_part.strip()
-            
-            # Split password and other details
             parts = rest.split('|', 1)
             password = parts[0].strip()
             details = parts[1].strip() if len(parts) > 1 else ''
-            
-            # Extract UID/RoleID
-            uid_match = re.search(r'(RoleID|UID):?\s*(\d+)', line)
-if not uid_match:
-    uid_match = re.search(r'UID:\s*(\d+)', line)
-uid = uid_match.group(2 if uid_match.lastindex == 2 else 1) if uid_match else ''
+
+            # Improved UID/RoleID extraction
+            uid = ''
+            role_match = re.search(r'RoleID:\s*(\d+)', line)
+            uid_match = re.search(r'UID:\s*(\d+)', line)
+            if role_match:
+                uid = role_match.group(1)
+            elif uid_match:
+                uid = uid_match.group(1)
 
             accounts.append({
                 'email': email,
                 'password': password,
                 'uid': uid,
-                'full_info': line,  # Keep original line format
+                'full_info': line,
                 'details': details
             })
         except Exception as e:
             print(f"Error parsing line: {line}\nError: {str(e)}")
             continue
-            
     return accounts
 
 @app.route('/', methods=['GET', 'POST'])
@@ -80,29 +78,29 @@ def index():
         if 'file' not in request.files:
             flash('No file selected', 'error')
             return redirect(request.url)
-            
+
         file = request.files['file']
         if file.filename == '':
             flash('No file selected', 'error')
             return redirect(request.url)
-            
+
         if file and allowed_file(file.filename):
             try:
                 content = file.read().decode('utf-8')
                 accounts = parse_file(content)
-                
+
                 if not accounts:
                     flash('No valid accounts found in the file', 'error')
                     return redirect(request.url)
-                    
+
                 session['accounts'] = accounts
                 flash(f'Successfully loaded {len(accounts)} accounts', 'success')
                 return redirect(url_for('view_accounts', page=1))
-                
+
             except Exception as e:
                 flash(f'Error processing file: {str(e)}', 'error')
                 return redirect(request.url)
-                
+
     return render_template('index.html')
 
 @app.route('/accounts/<int:page>')
@@ -111,25 +109,26 @@ def view_accounts(page):
     if 'accounts' not in session:
         flash('No accounts found. Please upload a file first.', 'error')
         return redirect(url_for('index'))
-        
+
     accounts = session['accounts']
     per_page = 50
     total_pages = max(1, (len(accounts) + per_page - 1) // per_page)
-    
+
     if page < 1 or page > total_pages:
         page = 1
-        
+
     start = (page - 1) * per_page
     end = start + per_page
     paginated_accounts = accounts[start:end]
-    
+
     return render_template('results.html',
-                         accounts=paginated_accounts,
-                         current_page=page,
-                         total_pages=total_pages,
-                         total_accounts=len(accounts))
+                           accounts=paginated_accounts,
+                           current_page=page,
+                           total_pages=total_pages,
+                           total_accounts=len(accounts))
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+    
