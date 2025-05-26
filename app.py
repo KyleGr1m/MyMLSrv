@@ -1,10 +1,38 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import os
 import re
+from functools import wraps
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'txt'}
+app.secret_key = 'your_secret_key_here'  # Change this for production
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username == 'Verxes' and password == '272504':
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            return "Invalid credentials", 401
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -19,26 +47,23 @@ def parse_file(content):
             password = rest[0].strip()
             
             # Extract clean UID
-            uid_match = re.search(r'UID:\s*(\d+)', line)
+            uid_match = re.search(r'RoleID:\s*(\d+)', line) or re.search(r'UID:\s*(\d+)', line)
             uid = uid_match.group(1) if uid_match else ''
             
-            # Extract other details
-            details = []
-            for part in rest[1:]:
-                part = part.strip()
-                if not part.startswith('UID:'):
-                    details.append(part)
+            # Create full info string in requested format
+            full_info = f"{email}:{password} | {' | '.join([p.strip() for p in rest[1:]])}"
             
             accounts.append({
                 'email': email,
                 'password': password,
                 'uid': uid,
-                'details': ' | '.join(details),
-                'full_info': f"Email: {email}\nPassword: {password}\nUID: {uid}\nDetails: {' | '.join(details)}"
+                'full_info': full_info,
+                'details': ' | '.join([p.strip() for p in rest[1:]])
             })
     return accounts
 
 @app.route('/', methods=['GET', 'POST'])
+@login_required
 def index():
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -49,8 +74,26 @@ def index():
         if file and allowed_file(file.filename):
             content = file.read().decode('utf-8')
             accounts = parse_file(content)
-            return render_template('results.html', accounts=accounts)
+            session['accounts'] = accounts  # Store in session for pagination
+            return redirect(url_for('view_accounts', page=1))
     return render_template('index.html')
+
+@app.route('/accounts/<int:page>')
+@login_required
+def view_accounts(page):
+    accounts = session.get('accounts', [])
+    per_page = 50
+    total_pages = (len(accounts) // per_page) + (1 if len(accounts) % per_page else 0)
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_accounts = accounts[start:end]
+    
+    return render_template('results.html', 
+                         accounts=paginated_accounts,
+                         current_page=page,
+                         total_pages=total_pages,
+                         total_accounts=len(accounts))
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
