@@ -75,19 +75,27 @@ def parse_file(content):
 @login_required
 def index():
     if request.method == 'POST':
+        print("POST received")
+
         if 'file' not in request.files:
+            print("No file key in request.files")
             flash('No file selected', 'error')
             return redirect(request.url)
 
         file = request.files['file']
+        print(f"File uploaded: {file.filename}")
+
         if file.filename == '':
+            print("Filename is empty")
             flash('No file selected', 'error')
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
             try:
                 content = file.read().decode('utf-8')
+                print("File content loaded")
                 accounts = parse_file(content)
+                print(f"Accounts parsed: {len(accounts)}")
 
                 if not accounts:
                     flash('No valid accounts found in the file', 'error')
@@ -98,6 +106,7 @@ def index():
                 return redirect(url_for('view_accounts', page=1))
 
             except Exception as e:
+                print(f"Exception: {str(e)}")
                 flash(f'Error processing file: {str(e)}', 'error')
                 return redirect(request.url)
 
