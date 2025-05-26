@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Account Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Account List</h1>
+        <div class="account-list">
+            {% for account in accounts %}
+            <div class="account-item" id="account-{{ loop.index }}">
+                <div class="main-info">
+                    <span>{{ account.email }}</span>
+                    <div class="actions">
+                        <button onclick="copyToClipboard('{{ account.email }}')">Copy Gmail</button>
+                        <button onclick="copyToClipboard('{{ account.password }}')">Copy Pass</button>
+                        <button onclick="toggleDetails('{{ loop.index }}')">Show Info</button>
+                        <button onclick="markChecked('{{ loop.index }}')">Checked</button>
+                    </div>
+                </div>
+                <div class="details" id="details-{{ loop.index }}">{{ account.details }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+        }
+
+        function toggleDetails(index) {
+            const details = document.getElementById(`details-${index}`);
+            details.style.display = details.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function markChecked(index) {
+            const account = document.getElementById(`account-${index}`);
+            account.style.opacity = '0.6';
+            account.style.textDecoration = 'line-through';
+        }
+    </script>
+</body>
+</html>
