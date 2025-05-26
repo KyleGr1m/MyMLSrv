@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'txt'}
 app.secret_key = 'your_secret_key_here'
-app.config['SESSION_TYPE'] = 'filesystem'  # Add this line
+app.config['SESSION_TYPE'] = 'filesystem'
 
 def login_required(f):
     @wraps(f)
@@ -40,26 +40,35 @@ def allowed_file(filename):
 def parse_file(content):
     accounts = []
     for line in content.splitlines():
-        if ':' in line:
-            parts = line.split(':', 1)
-            email = parts[0].strip()
-            rest = parts[1].split('|')
-            password = rest[0].strip()
+        line = line.strip()
+        if not line or ':' not in line:
+            continue
             
-            # Extract clean UID
-            uid_match = re.search(r'RoleID:\s*(\d+)', line) or re.search(r'UID:\s*(\d+)', line)
-            uid = uid_match.group(1) if uid_match else ''
+        try:
+            # Split email and password
+            email_part, rest = line.split(':', 1)
+            email = email_part.strip()
             
-            # Create full info string in requested format
-            full_info = f"{email}:{password} | {' | '.join([p.strip() for p in rest[1:]])}"
+            # Split password and other details
+            parts = rest.split('|', 1)
+            password = parts[0].strip()
+            details = parts[1].strip() if len(parts) > 1 else ''
+            
+            # Extract UID/RoleID
+            uid_match = re.search(r'(RoleID|UID):?\s*(\d+)', line)
+            uid = uid_match.group(2) if uid_match else ''
             
             accounts.append({
                 'email': email,
                 'password': password,
                 'uid': uid,
-                'full_info': full_info,
-                'details': ' | '.join([p.strip() for p in rest[1:]])
+                'full_info': line,  # Keep original line format
+                'details': details
             })
+        except Exception as e:
+            print(f"Error parsing line: {line}\nError: {str(e)}")
+            continue
+            
     return accounts
 
 @app.route('/', methods=['GET', 'POST'])
@@ -67,15 +76,31 @@ def parse_file(content):
 def index():
     if request.method == 'POST':
         if 'file' not in request.files:
+            flash('No file selected', 'error')
             return redirect(request.url)
+            
         file = request.files['file']
         if file.filename == '':
+            flash('No file selected', 'error')
             return redirect(request.url)
+            
         if file and allowed_file(file.filename):
-            content = file.read().decode('utf-8')
-            accounts = parse_file(content)
-            session['accounts'] = accounts  # Store in session for pagination
-            return redirect(url_for('view_accounts', page=1))
+            try:
+                content = file.read().decode('utf-8')
+                accounts = parse_file(content)
+                
+                if not accounts:
+                    flash('No valid accounts found in the file', 'error')
+                    return redirect(request.url)
+                    
+                session['accounts'] = accounts
+                flash(f'Successfully loaded {len(accounts)} accounts', 'success')
+                return redirect(url_for('view_accounts', page=1))
+                
+            except Exception as e:
+                flash(f'Error processing file: {str(e)}', 'error')
+                return redirect(request.url)
+                
     return render_template('index.html')
 
 @app.route('/accounts/<int:page>')
@@ -84,21 +109,19 @@ def view_accounts(page):
     if 'accounts' not in session:
         flash('No accounts found. Please upload a file first.', 'error')
         return redirect(url_for('index'))
-    
-    accounts = session.get('accounts', [])
+        
+    accounts = session['accounts']
     per_page = 50
-    total_pages = max(1, (len(accounts) + per_page - 1) // per_page)  # Fixed calculation
+    total_pages = max(1, (len(accounts) + per_page - 1) // per_page)
     
-    # Validate page number
-    if page < 1 or (total_pages > 0 and page > total_pages):
-        flash('Invalid page number', 'error')
-        return redirect(url_for('view_accounts', page=1))
-    
+    if page < 1 or page > total_pages:
+        page = 1
+        
     start = (page - 1) * per_page
     end = start + per_page
     paginated_accounts = accounts[start:end]
     
-    return render_template('results.html', 
+    return render_template('results.html',
                          accounts=paginated_accounts,
                          current_page=page,
                          total_pages=total_pages,
