@@ -7,19 +7,29 @@
 <body>
     <div class="container">
         <h1>Account List</h1>
+        <div class="controls">
+            <button onclick="copyAll()">Copy All</button>
+            <button onclick="markAll()">Mark All Checked</button>
+            <button onclick="unmarkAll()">Unmark All</button>
+        </div>
         <div class="account-list">
             {% for account in accounts %}
             <div class="account-item" id="account-{{ loop.index }}">
-                <div class="main-info">
-                    <span>{{ account.email }}</span>
-                    <div class="actions">
-                        <button onclick="copyToClipboard('{{ account.email }}')">Copy Gmail</button>
-                        <button onclick="copyToClipboard('{{ account.password }}')">Copy Pass</button>
-                        <button onclick="toggleDetails('{{ loop.index }}')">Show Info</button>
-                        <button onclick="markChecked('{{ loop.index }}')">Checked</button>
-                    </div>
+                <div class="account-header">
+                    <span class="email">{{ account.email }}</span>
+                    <span class="uid">{{ account.uid }}</span>
                 </div>
-                <div class="details" id="details-{{ loop.index }}">{{ account.details }}</div>
+                <div class="actions">
+                    <button onclick="copyToClipboard('{{ account.email }}')">Copy Gmail</button>
+                    <button onclick="copyToClipboard('{{ account.password }}')">Copy Pass</button>
+                    <button onclick="copyToClipboard('{{ account.uid }}')">Copy UID</button>
+                    <button onclick="showAndCopyFullInfo('{{ loop.index }}')">Show Complete Info</button>
+                    <button onclick="markChecked('{{ loop.index }}')">Checked</button>
+                </div>
+                <div class="details" id="details-{{ loop.index }}">
+                    {{ account.details }}
+                </div>
+                <textarea class="full-info" id="full-info-{{ loop.index }}" readonly>{{ account.full_info }}</textarea>
             </div>
             {% endfor %}
         </div>
@@ -28,17 +38,62 @@
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
+            showToast(`Copied: ${text}`);
         }
 
-        function toggleDetails(index) {
+        function showAndCopyFullInfo(index) {
+            const fullInfo = document.getElementById(`full-info-${index}`);
             const details = document.getElementById(`details-${index}`);
+            
+            // Toggle display
             details.style.display = details.style.display === 'none' ? 'block' : 'none';
+            
+            // Copy full info to clipboard
+            navigator.clipboard.writeText(fullInfo.value);
+            showToast('Copied full account info!');
         }
 
         function markChecked(index) {
             const account = document.getElementById(`account-${index}`);
-            account.style.opacity = '0.6';
-            account.style.textDecoration = 'line-through';
+            account.classList.toggle('checked');
+        }
+
+        function copyAll() {
+            let allInfo = '';
+            document.querySelectorAll('.full-info').forEach(el => {
+                allInfo += el.value + '\n\n';
+            });
+            navigator.clipboard.writeText(allInfo.trim());
+            showToast('Copied all accounts to clipboard!');
+        }
+
+        function markAll() {
+            document.querySelectorAll('.account-item').forEach(el => {
+                el.classList.add('checked');
+            });
+        }
+
+        function unmarkAll() {
+            document.querySelectorAll('.account-item').forEach(el => {
+                el.classList.remove('checked');
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 2000);
+            }, 10);
         }
     </script>
 </body>
