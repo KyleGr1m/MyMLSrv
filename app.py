@@ -60,7 +60,6 @@ if not uid_match:
     uid_match = re.search(r'UID:\s*(\d+)', line)
 uid = uid_match.group(2 if uid_match.lastindex == 2 else 1) if uid_match else ''
 
-            
             accounts.append({
                 'email': email,
                 'password': password,
