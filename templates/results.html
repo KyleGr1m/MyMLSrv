@@ -6,16 +6,32 @@
 </head>
 <body>
     <div class="container">
-        <h1>Account List</h1>
+        <div class="header">
+            <h1>Account List ({{ current_page }}/{{ total_pages }})</h1>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+        
         <div class="controls">
             <button onclick="copyAll()">Copy All</button>
             <button onclick="markAll()">Mark All Checked</button>
             <button onclick="unmarkAll()">Unmark All</button>
         </div>
+        
+        <div class="pagination">
+            {% if current_page > 1 %}
+                <a href="/accounts/{{ current_page-1 }}">Previous</a>
+            {% endif %}
+            <span>Page {{ current_page }} of {{ total_pages }}</span>
+            {% if current_page < total_pages %}
+                <a href="/accounts/{{ current_page+1 }}">Next</a>
+            {% endif %}
+        </div>
+        
         <div class="account-list">
             {% for account in accounts %}
-            <div class="account-item" id="account-{{ loop.index }}">
+            <div class="account-item" id="account-{{ loop.index + ((current_page-1)*50) }}">
                 <div class="account-header">
+                    <span class="account-number">{{ loop.index + ((current_page-1)*50) }}.</span>
                     <span class="email">{{ account.email }}</span>
                     <span class="uid">{{ account.uid }}</span>
                 </div>
@@ -23,13 +39,13 @@
                     <button onclick="copyToClipboard('{{ account.email }}')">Copy Gmail</button>
                     <button onclick="copyToClipboard('{{ account.password }}')">Copy Pass</button>
                     <button onclick="copyToClipboard('{{ account.uid }}')">Copy UID</button>
-                    <button onclick="showAndCopyFullInfo('{{ loop.index }}')">Show Complete Info</button>
-                    <button onclick="markChecked('{{ loop.index }}')">Checked</button>
+                    <button onclick="showAndCopyFullInfo('{{ loop.index + ((current_page-1)*50) }}')">Full Info</button>
+                    <button onclick="markChecked('{{ loop.index + ((current_page-1)*50) }}')">Checked</button>
                 </div>
-                <div class="details" id="details-{{ loop.index }}">
+                <div class="details" id="details-{{ loop.index + ((current_page-1)*50) }}">
                     {{ account.details }}
                 </div>
-                <textarea class="full-info" id="full-info-{{ loop.index }}" readonly>{{ account.full_info }}</textarea>
+                <textarea class="full-info" id="full-info-{{ loop.index + ((current_page-1)*50) }}" readonly>{{ account.full_info }}</textarea>
             </div>
             {% endfor %}
         </div>
@@ -56,12 +72,14 @@
         function markChecked(index) {
             const account = document.getElementById(`account-${index}`);
             account.classList.toggle('checked');
+            // Store in localStorage for history
+            localStorage.setItem(`account-${index}`, 'checked');
         }
 
         function copyAll() {
             let allInfo = '';
             document.querySelectorAll('.full-info').forEach(el => {
-                allInfo += el.value + '\n\n';
+                allInfo += el.value + '\n';
             });
             navigator.clipboard.writeText(allInfo.trim());
             showToast('Copied all accounts to clipboard!');
@@ -70,12 +88,16 @@
         function markAll() {
             document.querySelectorAll('.account-item').forEach(el => {
                 el.classList.add('checked');
+                const index = el.id.split('-')[1];
+                localStorage.setItem(`account-${index}`, 'checked');
             });
         }
 
         function unmarkAll() {
             document.querySelectorAll('.account-item').forEach(el => {
                 el.classList.remove('checked');
+                const index = el.id.split('-')[1];
+                localStorage.removeItem(`account-${index}`);
             });
         }
 
@@ -95,6 +117,16 @@
                 }, 2000);
             }, 10);
         }
+
+        // Load checked status from localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.account-item').forEach(el => {
+                const index = el.id.split('-')[1];
+                if (localStorage.getItem(`account-${index}`)) {
+                    el.classList.add('checked');
+                }
+            });
+        });
     </script>
 </body>
 </html>
