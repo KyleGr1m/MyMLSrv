@@ -1,13 +1,21 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_session import Session
 import os
 import re
 from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = 'VXES'
+
+# File upload settings
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'txt'}
-app.secret_key = 'VXES'
+
+# Session config for Render
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
+app.config['SESSION_PERMANENT'] = False
+Session(app)
 
 def login_required(f):
     @wraps(f)
@@ -50,7 +58,7 @@ def parse_file(content):
             password = parts[0].strip()
             details = parts[1].strip() if len(parts) > 1 else ''
 
-            # Improved UID/RoleID extraction
+            # Extract UID or RoleID
             uid = ''
             role_match = re.search(r'RoleID:\s*(\d+)', line)
             uid_match = re.search(r'UID:\s*(\d+)', line)
@@ -75,27 +83,19 @@ def parse_file(content):
 @login_required
 def index():
     if request.method == 'POST':
-        print("POST received")
-
         if 'file' not in request.files:
-            print("No file key in request.files")
             flash('No file selected', 'error')
             return redirect(request.url)
 
         file = request.files['file']
-        print(f"File uploaded: {file.filename}")
-
         if file.filename == '':
-            print("Filename is empty")
             flash('No file selected', 'error')
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
             try:
                 content = file.read().decode('utf-8')
-                print("File content loaded")
                 accounts = parse_file(content)
-                print(f"Accounts parsed: {len(accounts)}")
 
                 if not accounts:
                     flash('No valid accounts found in the file', 'error')
@@ -106,7 +106,6 @@ def index():
                 return redirect(url_for('view_accounts', page=1))
 
             except Exception as e:
-                print(f"Exception: {str(e)}")
                 flash(f'Error processing file: {str(e)}', 'error')
                 return redirect(request.url)
 
@@ -140,4 +139,3 @@ if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-    
