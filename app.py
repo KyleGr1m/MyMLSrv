@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import os
 import re
 from functools import wraps
@@ -6,9 +6,9 @@ from functools import wraps
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'txt'}
-app.secret_key = 'VXES'  # Change this for production
+app.secret_key = 'your_secret_key_here'
+app.config['SESSION_TYPE'] = 'filesystem'  # Add this line
 
-# Login required decorator
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -81,9 +81,18 @@ def index():
 @app.route('/accounts/<int:page>')
 @login_required
 def view_accounts(page):
+    if 'accounts' not in session:
+        flash('No accounts found. Please upload a file first.', 'error')
+        return redirect(url_for('index'))
+    
     accounts = session.get('accounts', [])
     per_page = 50
-    total_pages = (len(accounts) // per_page) + (1 if len(accounts) % per_page else 0)
+    total_pages = max(1, (len(accounts) + per_page - 1) // per_page)  # Fixed calculation
+    
+    # Validate page number
+    if page < 1 or (total_pages > 0 and page > total_pages):
+        flash('Invalid page number', 'error')
+        return redirect(url_for('view_accounts', page=1))
     
     start = (page - 1) * per_page
     end = start + per_page
