@@ -6,7 +6,7 @@ from functools import wraps
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'txt'}
-app.secret_key = 'your_secret_key_here'
+app.secret_key = 'VXES'
 app.config['SESSION_TYPE'] = 'filesystem'
 
 def login_required(f):
