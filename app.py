@@ -58,7 +58,6 @@ def parse_file(content):
             password = parts[0].strip()
             details = parts[1].strip() if len(parts) > 1 else ''
 
-            # Extract UID or RoleID
             uid = ''
             role_match = re.search(r'RoleID:\s*(\d+)', line)
             uid_match = re.search(r'UID:\s*(\d+)', line)
