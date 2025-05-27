@@ -47,10 +47,12 @@ def allowed_file(filename):
 
 def parse_file(content):
     accounts = []
+
     for line in content.splitlines():
         line = line.strip()
         if not line or ':' not in line:
             continue
+
         try:
             email_part, rest = line.split(':', 1)
             email = email_part.strip()
@@ -58,6 +60,7 @@ def parse_file(content):
             password = parts[0].strip()
             details = parts[1].strip() if len(parts) > 1 else ''
 
+            # Extract UID or RoleID
             uid = ''
             role_match = re.search(r'RoleID:\s*(\d+)', line)
             uid_match = re.search(r'UID:\s*(\d+)', line)
@@ -66,16 +69,24 @@ def parse_file(content):
             elif uid_match:
                 uid = uid_match.group(1)
 
+            # Extract Level
+            level_match = re.search(r'Level:\s*(\d+)', line)
+            level = int(level_match.group(1)) if level_match else 0
+
             accounts.append({
                 'email': email,
                 'password': password,
                 'uid': uid,
+                'level': level,
                 'full_info': line,
                 'details': details
             })
         except Exception as e:
             print(f"Error parsing line: {line}\nError: {str(e)}")
             continue
+
+    # Sort accounts by level descending
+    accounts.sort(key=lambda acc: acc['level'], reverse=True)
     return accounts
 
 @app.route('/', methods=['GET', 'POST'])
